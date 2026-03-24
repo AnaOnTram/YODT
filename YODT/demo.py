@@ -1,3 +1,4 @@
+import os
 import time
 import numpy as np
 from PIL import Image
@@ -16,7 +17,16 @@ from ultralytics import YOLO
 from util.misc import make_grid
 import models_mae_cross
 
-device = torch.device('mps')
+if torch.backends.mps.is_available():
+    device = torch.device('mps')
+    mps_device = torch.device("mps")
+    x = torch.ones(1, device=mps_device)
+    print (f"MPS device found: {x.device}")
+elif torch.cuda.is_available():
+    device = torch.device('cuda')
+    print(f"CUDA device found: {torch.cuda.get_device_name(0)}")
+else:
+    device = torch.device('cpu')
 
 """
 python demo.py
@@ -51,7 +61,7 @@ def detect_exemplar_bboxes(im_path, W, H):
     Exemplars are chosen as the 3 detections whose bounding box area is closest
     to the median area across all detections, so CounTR receives a representative
     size template rather than the largest/most-prominent outliers."""
-    yolo = YOLO('Model/YOLO/yolo11n.pt')
+    yolo = YOLO('Model/YOLO/head.pt')
     results = yolo(im_path, verbose=False)
     person_boxes = []
     for result in results:
@@ -231,16 +241,24 @@ def run_one_image(samples, boxes, pos, model):
     pred_vis = pred / (pred.max() + 1e-8)
     fig = fig + box_map + pred_vis * 0.6
     fig = torch.clamp(fig, 0, 1)
-    torchvision.utils.save_image(fig, f'./Image/Visualisation.png')
+    out_dir_base = './Image'
+    os.makedirs(out_dir_base, exist_ok=True)
+    run_idx = 1
+    while os.path.exists(os.path.join(out_dir_base, f'run{run_idx}')):
+        run_idx += 1
+    save_dir = os.path.join(out_dir_base, f'run{run_idx}')
+    os.makedirs(save_dir)
+
+    torchvision.utils.save_image(fig, os.path.join(save_dir, 'Visualisation.png'))
     density_norm = pred / (pred.max() + 1e-8)
-    torchvision.utils.save_image(density_norm, f'./Image/DensityMap.png')
+    torchvision.utils.save_image(density_norm, os.path.join(save_dir, 'DensityMap.png'))
     import matplotlib.pyplot as plt
     density_np = pred[0].detach().cpu().numpy()
     plt.figure(figsize=(8, 8))
     plt.imshow(density_np, cmap='jet')
     plt.colorbar()
     plt.title(f'Predicted count: {pred_cnt:.1f}')
-    plt.savefig('./Image/DensityHeatmap.png', dpi=100, bbox_inches='tight')
+    plt.savefig(os.path.join(save_dir, 'DensityHeatmap.png'), dpi=100, bbox_inches='tight')
     plt.close()
     # GT map needs coordinates for all GT dots, which is hard to input and is not a must for the demo. You can provide it yourself.
     return pred_cnt, et

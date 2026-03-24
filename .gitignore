@@ -9,3 +9,9 @@
 # Images
 *.jpeg
 *.jpg
+
+# Inference output
+Image/*/
+
+# Cache
+__pycache__
