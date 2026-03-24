@@ -1,0 +1,11 @@
+# Model weights
+*.pth
+*.pt
+
+# Keep Model and YOLO folder structure
+!Model/.gitkeep
+!Model/YOLO/.gitkeep
+
+# Images
+*.jpeg
+*.jpg
